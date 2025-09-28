@@ -1,0 +1,41 @@
+# Development Docker Compose overrides
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development with build tools
+    volumes:
+      - ./app:/app/app
+      - ./media:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=development
+      - DEBUG=true
+      - RELOAD=true
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      db:
+        condition: service_started  # Don't wait for healthy in dev for faster startup
+
+  db:
+    environment:
+      - POSTGRES_DB=proofing_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    
+  caddy:
+    volumes:
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+    environment:
+      - DOMAIN=localhost
+
+volumes:
+  postgres_dev_data:
+    driver: local

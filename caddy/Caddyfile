@@ -1,0 +1,49 @@
+# Production Caddyfile
+# TODO: Replace your-domain.com with your actual domain
+{$DOMAIN:your-domain.com} {
+    # Automatic HTTPS with Let's Encrypt
+    # TODO: Configure email for Let's Encrypt notifications
+    # tls your-email@domain.com
+    
+    # API routes
+    reverse_proxy /api/* web:8000
+    reverse_proxy /docs web:8000
+    reverse_proxy /redoc web:8000
+    reverse_proxy /openapi.json web:8000
+    reverse_proxy /health web:8000
+    
+    # Media files served directly by Caddy
+    handle /media/* {
+        root * /srv
+        file_server
+    }
+    
+    # Default route to API
+    reverse_proxy web:8000
+    
+    # Logging
+    log {
+        output file /data/access.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
+    
+    # Security headers
+    header {
+        # Enable HSTS
+        Strict-Transport-Security max-age=31536000;
+        # Prevent MIME sniffing
+        X-Content-Type-Options nosniff
+        # Prevent clickjacking
+        X-Frame-Options DENY
+        # XSS protection
+        X-XSS-Protection "1; mode=block"
+        # Referrer policy
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+    
+    # Gzip compression
+    encode gzip
+}
