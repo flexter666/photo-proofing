@@ -1,0 +1,27 @@
+# Development Caddyfile
+localhost:80 {
+    # API routes
+    reverse_proxy /api/* web:8000
+    reverse_proxy /docs web:8000
+    reverse_proxy /redoc web:8000
+    reverse_proxy /openapi.json web:8000
+    reverse_proxy /health web:8000
+    
+    # Media files served directly by Caddy
+    handle /media/* {
+        root * /srv
+        file_server
+    }
+    
+    # Default route to API
+    reverse_proxy web:8000
+    
+    # Logging for development
+    log {
+        output stdout
+        level DEBUG
+    }
+    
+    # Gzip compression
+    encode gzip
+}

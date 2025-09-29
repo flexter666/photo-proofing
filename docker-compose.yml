@@ -1,0 +1,93 @@
+# Production Docker Compose configuration
+
+services:
+  web:
+    image: ghcr.io/${GHCR_OWNER}/photo-proofing:${VERSION:-latest}
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.docker.compose.service=web"
+
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-proofing}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-proofing}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.docker.compose.service=db"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - media:/srv/media:ro
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      web:
+        condition: service_healthy
+    labels:
+      - "com.docker.compose.service=caddy"
+
+  # Optional Redis service (disabled by default)
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    profiles:
+      - redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "com.docker.compose.service=redis"
+
+volumes:
+  postgres_data:
+    driver: local
+  media:
+    driver: local
+    # TODO: For production on server with NAS, use:
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /mnt/nas/proofing
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: photo-proofing-network
